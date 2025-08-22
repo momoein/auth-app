@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Profile</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <div class="container">
+    <h1>Profile</h1>
+    <div id="profile"></div>
+    <button onclick="logout()">Logout</button>
+    <p><a href="/">🏠 Home</a></p>
+  </div>
+
+  <script>
+    async function loadProfile() {
+      const res = await fetch("/profile", {
+        credentials: "include"
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        document.getElementById("profile").innerText = data.message;
+      } else {
+        alert("Session expired. Please login again.");
+        window.location.href = "/login.html";
+      }
+    }
+
+    async function logout() {
+      await fetch("/logout", {
+        method: "POST",
+        credentials: "include"
+      });
+      window.location.href = "/login.html";
+    }
+
+    loadProfile();
+  </script>
+</body>
+</html>

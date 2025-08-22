@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Home</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <div class="container">
+    <h1>Welcome</h1>
+    <div id="links"></div>
+  </div>
+
+  <script>
+    async function renderLinks() {
+      const res = await fetch("/profile", {
+        credentials: "include"
+      });
+
+      const linksDiv = document.getElementById("links");
+      if (res.ok) {
+        linksDiv.innerHTML = `
+          <p><a href="/profile.html">Profile</a></p>
+          <p><a href="#" onclick="logout()">Logout</a></p>
+        `;
+      } else {
+        linksDiv.innerHTML = `
+          <p><a href="/signup.html">Signup</a></p>
+          <p><a href="/login.html">Login</a></p>
+        `;
+      }
+    }
+
+    async function logout() {
+      await fetch("/logout", {
+        method: "POST",
+        credentials: "include"
+      });
+      renderLinks();
+    }
+
+    renderLinks();
+  </script>
+</body>
+</html>
