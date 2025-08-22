@@ -13,7 +13,8 @@ app.use(cookieParser());
 
 const SECRET = process.env.JWT_SECRET || "default_secret";
 const EXPIRES_IN = process.env.JWT_EXPIRES_IN || "1h";
-const COOKIE_SECURE = process.env.COOKIE_SECURE === "false";
+// convert a string value from an environment variable into a boolean (true or false)
+const COOKIE_SECURE = process.env.COOKIE_SECURE === "true"; 
 const COOKIE_MAX_AGE = parseInt(process.env.COOKIE_MAX_AGE) || 60 * 60 * 1000;
 
 app.post("/signup", async (req, res) => {
@@ -23,7 +24,12 @@ app.post("/signup", async (req, res) => {
   const hash = await bcrypt.hash(password, 10);
 
   db.run("INSERT INTO users (email, password) VALUES (?, ?)", [email, hash], function (err) {
-    if (err) return res.status(400).json({ error: "User already exists" });
+    if (err) {
+      if (err.message.includes("UNIQUE constraint failed")) {
+          return res.status(400).json({ error: "User already exists" });
+      }
+      return res.status(500).json({ error: "Database error" });
+    }
 
     const token = jwt.sign({ id: this.lastID, email }, SECRET, { expiresIn: EXPIRES_IN });
 
@@ -34,7 +40,8 @@ app.post("/signup", async (req, res) => {
       maxAge: COOKIE_MAX_AGE
     });
 
-    res.json({ message: "Signup successful, logged in!", email });
+    // Removed `email` from response for consistency
+    res.json({ message: "Signup successful, logged in!" });
   });
 });
 
@@ -47,7 +54,8 @@ const loginLimiter = rateLimit({
 app.post("/login", loginLimiter, (req, res) => {
   const { email, password } = req.body;
   db.get("SELECT * FROM users WHERE email = ?", [email], async (err, user) => {
-    if (err || !user) return res.status(400).json({ error: "User not found" });
+    if (err) return res.status(500).json({ error: "Database error" });
+    if (!user) return res.status(400).json({ error: "User not found" });
 
     const match = await bcrypt.compare(password, user.password);
     if (!match) return res.status(401).json({ error: "Wrong password" });
@@ -72,7 +80,7 @@ app.get("/profile", (req, res) => {
   try {
     const decoded = jwt.verify(token, SECRET);
     res.json({ message: "Welcome " + decoded.email });
-  } catch {
+  } catch(error) {
     res.status(401).json({ error: "Invalid token" });
   }
 });
