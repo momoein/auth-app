@@ -68,23 +68,39 @@ This is a simple Node.js application for user authentication, featuring a RESTfu
 
 ---
 
+## 🧪 Running Tests
+
+To run the automated tests for the API, use the following command:
+
+```Bash
+npm test
+```
+
+This command uses Jest to execute all test files in the src/ directory with a .test.js suffix. The tests verify the API's authentication flow, including signup, login, and protected route access, as well as a range of invalid scenarios.
+
 ## 📂 Project Structure
 
 ```
+
 ├── .env
 ├── .gitignore
 ├── README.md
 ├── package-lock.json
 ├── package.json
 ├── public/
-│   ├── index.html
-│   ├── login.html
-│   ├── profile.html
-│   ├── signup.html
-│   └── style.css
+│ ├── index.html
+│ ├── login.html
+│ ├── profile.html
+│ ├── signup.html
+│ └── style.css
 └── src/
-    ├── app.js       # Main Express application with routes
-    ├── app.test.js  # API tests
-    ├── db.js        # SQLite database connection and schema
-    └── server.js    # Entry point for the server
+├── app.js # Main Express application with routes
+├── app.test.js # API tests
+├── db.js # SQLite database connection and schema
+└── server.js # Entry point for the server
+
+```
+
+```
+
 ```
