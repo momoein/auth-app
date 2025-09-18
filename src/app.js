@@ -13,46 +13,61 @@ app.use(cookieParser());
 
 const SECRET = process.env.JWT_SECRET || "default_secret";
 const EXPIRES_IN = process.env.JWT_EXPIRES_IN || "1h";
-// convert a string value from an environment variable into a boolean (true or false)
 const COOKIE_SECURE = process.env.COOKIE_SECURE === "true"; 
 const COOKIE_MAX_AGE = parseInt(process.env.COOKIE_MAX_AGE) || 60 * 60 * 1000;
 
 app.post("/signup", async (req, res) => {
-  const { email, password } = req.body;
-  if (!email || !password) return res.status(400).json({ error: "Invalid input" });
+  const { fullName, email, password, gender, dob } = req.body;
+  if (!fullName || !email || !password || !gender || !dob) {
+    return res.status(400).json({ error: "All fields are required" });
+  }
+
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    return res.status(400).json({ error: "Invalid email format" });
+  }
 
   const hash = await bcrypt.hash(password, 10);
 
-  db.run("INSERT INTO users (email, password) VALUES (?, ?)", [email, hash], function (err) {
-    if (err) {
-      if (err.message.includes("UNIQUE constraint failed")) {
-          return res.status(400).json({ error: "User already exists" });
+  db.run(
+    "INSERT INTO users (email, password, fullName, gender, dob) VALUES (?, ?, ?, ?, ?)",
+    [email, hash, fullName, gender, dob],
+    function (err) {
+      if (err) {
+        if (err.message.includes("UNIQUE constraint failed")) {
+          return res.status(400).json({ error: "User with this email already exists" });
+        }
+        return res.status(500).json({ error: "Database error" });
       }
-      return res.status(500).json({ error: "Database error" });
+
+      const token = jwt.sign({ id: this.lastID, email }, SECRET, { expiresIn: EXPIRES_IN });
+
+      res.cookie("token", token, {
+        httpOnly: true,
+        secure: COOKIE_SECURE,
+        sameSite: "strict",
+        maxAge: COOKIE_MAX_AGE,
+      });
+
+      res.json({ message: "Signup successful, logged in!" });
     }
-
-    const token = jwt.sign({ id: this.lastID, email }, SECRET, { expiresIn: EXPIRES_IN });
-
-    res.cookie("token", token, {
-      httpOnly: true,
-      secure: COOKIE_SECURE,
-      sameSite: "strict",
-      maxAge: COOKIE_MAX_AGE
-    });
-
-    // Removed `email` from response for consistency
-    res.json({ message: "Signup successful, logged in!" });
-  });
+  );
 });
 
 const loginLimiter = rateLimit({
-  windowMs: 5 * 60 * 1000, // 5 minutes
+  windowMs: 5 * 60 * 1000, 
   max: 5,
   message: "Too many login attempts, try again later"
 });
 
 app.post("/login", loginLimiter, (req, res) => {
   const { email, password } = req.body;
+
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    return res.status(400).json({ error: "Invalid email format" });
+  }
+  
   db.get("SELECT * FROM users WHERE email = ?", [email], async (err, user) => {
     if (err) return res.status(500).json({ error: "Database error" });
     if (!user) return res.status(400).json({ error: "User not found" });
@@ -66,7 +81,7 @@ app.post("/login", loginLimiter, (req, res) => {
       httpOnly: true,
       secure: COOKIE_SECURE,
       sameSite: "strict",
-      maxAge: COOKIE_MAX_AGE
+      maxAge: COOKIE_MAX_AGE,
     });
 
     res.json({ message: "Logged in successfully" });
@@ -79,8 +94,12 @@ app.get("/profile", (req, res) => {
 
   try {
     const decoded = jwt.verify(token, SECRET);
-    res.json({ message: "Welcome " + decoded.email });
-  } catch(error) {
+    db.get("SELECT fullName, email, gender, dob FROM users WHERE id = ?", [decoded.id], (err, user) => {
+      if (err) return res.status(500).json({ error: "Database error" });
+      if (!user) return res.status(404).json({ error: "User not found" });
+      res.json(user);
+    });
+  } catch (error) {
     res.status(401).json({ error: "Invalid token" });
   }
 });

@@ -7,9 +7,11 @@
 </head>
 <body>
   <div class="container">
-    <h1>Profile</h1>
-    <div id="profile"></div>
-    <button onclick="logout()">Logout</button>
+    <h1>User Profile</h1>
+    <div id="profile-card">
+      <div id="profile-info"></div>
+      <button onclick="logout()">Logout</button>
+    </div>
     <p><a href="/">🏠 Home</a></p>
   </div>
 
@@ -19,9 +21,15 @@
         credentials: "include"
       });
 
-      const data = await res.json();
       if (res.ok) {
-        document.getElementById("profile").innerText = data.message;
+        const user = await res.json();
+        const profileDiv = document.getElementById("profile-info");
+        profileDiv.innerHTML = `
+          <h2>${user.fullName}</h2>
+          <p><strong>Email:</strong> ${user.email}</p>
+          <p><strong>Gender:</strong> ${user.gender}</p>
+          <p><strong>Date of Birth:</strong> ${user.dob}</p>
+        `;
       } else {
         alert("Session expired. Please login again.");
         window.location.href = "/login.html";

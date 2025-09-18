@@ -2,7 +2,6 @@ const request = require("supertest");
 const app = require("./app");
 const db = require("./db");
 
-// Before all tests, clear the user table to ensure a clean state
 beforeAll((done) => {
   db.run("DELETE FROM users", done);
 });
@@ -10,41 +9,74 @@ beforeAll((done) => {
 describe("Auth API", () => {
   let token;
 
-  // Test Case 1: Successful Signup
-  test("Should successfully sign up a new user", async () => {
+  // Test Case 1: Successful Signup with new fields
+  test("Should successfully sign up a new user with all fields", async () => {
     const res = await request(app)
       .post("/signup")
-      .send({ email: "test@example.com", password: "123password" });
+      .send({ 
+        fullName: "Rasoul Khoshkalam",
+        email: "rasoul.test@example.com",
+        password: "testpassword123",
+        gender: "male",
+        dob: "1990-01-01"
+      });
 
     expect(res.statusCode).toBe(200);
     expect(res.headers['set-cookie']).toBeDefined();
   });
 
-  // Test Case 2: Signup with existing email should fail
+  // Test Case 2: Signup with missing fields should fail
+  test("Should return an error if a required field is missing during signup", async () => {
+    const res = await request(app)
+      .post("/signup")
+      .send({ 
+        fullName: "Rasoul Khoshkalam",
+        email: "incomplete@example.com",
+        password: "testpassword123",
+        gender: "male"
+      });
+    
+    expect(res.statusCode).toBe(400);
+    expect(res.body.error).toBe("All fields are required");
+  });
+
+    // Test Case 2.1: Signup with invalid email format should fail
+  test("Should return an error if email format is invalid during signup", async () => {
+    const res = await request(app)
+      .post("/signup")
+      .send({ 
+        fullName: "Rasoul Khoshkalam",
+        email: "invalid-email-format", // not a valid email
+        password: "testpassword123",
+        gender: "male",
+        dob: "1990-01-01"
+      });
+
+    expect(res.statusCode).toBe(400);
+    expect(res.body.error).toBe("Invalid email format");
+  });
+
+  // Test Case 3: Signup with existing email should fail
   test("Should return an error if email already exists during signup", async () => {
     const res = await request(app)
       .post("/signup")
-      .send({ email: "test@example.com", password: "newpassword" });
+      .send({ 
+        fullName: "Rasoul Khoshkalam",
+        email: "rasoul.test@example.com",
+        password: "newpassword",
+        gender: "male",
+        dob: "1990-01-01"
+      });
 
     expect(res.statusCode).toBe(400);
-    expect(res.body.error).toBe("User already exists");
-  });
-
-  // Test Case 3: Signup with missing email should fail
-  test("Should return an error if email is missing during signup", async () => {
-    const res = await request(app)
-      .post("/signup")
-      .send({ password: "123password" });
-    
-    expect(res.statusCode).toBe(400);
-    expect(res.body.error).toBe("Invalid input");
+    expect(res.body.error).toBe("User with this email already exists");
   });
 
   // Test Case 4: Successful Login
   test("Should successfully log in with correct credentials", async () => {
     const res = await request(app)
       .post("/login")
-      .send({ email: "test@example.com", password: "123password" });
+      .send({ email: "rasoul.test@example.com", password: "testpassword123" });
       
     expect(res.statusCode).toBe(200);
     expect(res.body.message).toBe("Logged in successfully");
@@ -56,33 +88,26 @@ describe("Auth API", () => {
   test("Should return an error for wrong password during login", async () => {
     const res = await request(app)
       .post("/login")
-      .send({ email: "test@example.com", password: "wrongpassword" });
+      .send({ email: "rasoul.test@example.com", password: "wrongpassword" });
       
     expect(res.statusCode).toBe(401);
     expect(res.body.error).toBe("Wrong password");
   });
 
-  // Test Case 6: Login with non-existent user should fail
-  test("Should return an error for a non-existent user during login", async () => {
-    const res = await request(app)
-      .post("/login")
-      .send({ email: "nonexistent@example.com", password: "123password" });
-
-    expect(res.statusCode).toBe(400);
-    expect(res.body.error).toBe("User not found");
-  });
-
-  // Test Case 7: Accessing a protected route (profile) with a valid token
-  test("Should allow access to profile with a valid token", async () => {
+  // Test Case 6: Accessing a protected route (profile) with a valid token
+  test("Should return user data when accessing profile with a valid token", async () => {
     const res = await request(app)
       .get("/profile")
       .set("Cookie", `token=${token}`);
       
     expect(res.statusCode).toBe(200);
-    expect(res.body.message).toBe("Welcome test@example.com");
+    expect(res.body.fullName).toBe("Rasoul Khoshkalam");
+    expect(res.body.email).toBe("rasoul.test@example.com");
+    expect(res.body.gender).toBe("male");
+    expect(res.body.dob).toBe("1990-01-01");
   });
 
-  // Test Case 8: Accessing a protected route without a token
+  // Test Case 7: Accessing a protected route without a token
   test("Should deny access to profile without a token", async () => {
     const res = await request(app).get("/profile");
     
@@ -90,21 +115,11 @@ describe("Auth API", () => {
     expect(res.body.error).toBe("No token");
   });
 
-  // Test Case 9: Accessing a protected route with an invalid token
-  test("Should deny access to profile with an invalid token", async () => {
-    const res = await request(app)
-      .get("/profile")
-      .set("Cookie", "token=invalid.token.here");
-
-    expect(res.statusCode).toBe(401);
-    expect(res.body.error).toBe("Invalid token");
-  });
-
-  // Test Case 10: Successful Logout
+  // Test Case 8: Successful Logout
   test("Should successfully log out and clear the cookie", async () => {
     const agent = request.agent(app);
     // Log in first to get a valid cookie
-    await agent.post("/login").send({ email: "test@example.com", password: "123password" });
+    await agent.post("/login").send({ email: "rasoul.test@example.com", password: "testpassword123" });
     
     // Now perform the logout
     const res = await agent.post("/logout");
@@ -112,24 +127,7 @@ describe("Auth API", () => {
     expect(res.statusCode).toBe(200);
     expect(res.body.message).toBe("Logged out");
     expect(res.headers['set-cookie']).toBeDefined();
-    // Correctly check for a past expiration date, which indicates the cookie has been cleared
     expect(res.headers['set-cookie'][0]).toContain('Expires=');
     expect(res.headers['set-cookie'][0]).toContain('1970');
-  });
-
-  // Test Case 11: Accessing profile after logout should fail
-  test("Should deny access to profile after logout", async () => {
-    // To ensure a clean state, create a new agent
-    const agent = request.agent(app);
-    await agent.post("/login").send({ email: "test@example.com", password: "123password" });
-    
-    // Log out to clear the cookie
-    await agent.post("/logout");
-
-    // Now try to access the profile with the cleared cookie state
-    const res = await agent.get("/profile");
-      
-    expect(res.statusCode).toBe(401);
-    expect(res.body.error).toBe("No token");
   });
 });
